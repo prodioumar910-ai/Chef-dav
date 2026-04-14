@@ -3,7 +3,19 @@ import { MessageSquare, X, Send, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from '@google/genai';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Lazy initialization to prevent app crash on load if API key is missing
+let aiClient: GoogleGenAI | null = null;
+const getAiClient = () => {
+  if (!aiClient) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.warn("GEMINI_API_KEY is missing. Chat assistant will not work.");
+      return null;
+    }
+    aiClient = new GoogleGenAI({ apiKey });
+  }
+  return aiClient;
+};
 
 export default function ChatAssistant() {
   const [isOpen, setIsOpen] = useState(false);
@@ -31,6 +43,13 @@ export default function ChatAssistant() {
     setIsLoading(true);
 
     try {
+      const ai = getAiClient();
+      if (!ai) {
+        setMessages(prev => [...prev, { role: 'assistant', content: "L'assistant est temporairement indisponible (Clé API manquante)." }]);
+        setIsLoading(false);
+        return;
+      }
+
       const prompt = `
         Tu es l'assistant virtuel du "Chef David", un chef cuisinier basé à Bamako, Mali, spécialisé dans le méchoui au riz et sauce.
         Ton rôle est de répondre aux questions des clients de manière polie, professionnelle et chaleureuse.
